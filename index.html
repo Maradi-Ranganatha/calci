@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CALC — Ultra</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:       #0a0a0a;
+      --surface:  #111111;
+      --border:   #222222;
+      --accent:   #e8ff47;
+      --accent2:  #ff4747;
+      --text:     #f0f0f0;
+      --muted:    #555555;
+      --btn-bg:   #161616;
+      --btn-hover:#1f1f1f;
+      --shadow:   0 0 40px rgba(232,255,71,0.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Mono', monospace;
+      overflow: hidden;
+    }
+
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      opacity: 0.6;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 11px;
+      letter-spacing: 6px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .calculator {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      width: 340px;
+      box-shadow: var(--shadow), 0 40px 80px rgba(0,0,0,0.6);
+      animation: slideUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards;
+      opacity: 0;
+      transform: translateY(30px);
+    }
+
+    @keyframes slideUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Display */
+    .display {
+      background: #0d0d0d;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 18px 14px;
+      margin-bottom: 20px;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .display-expr {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      min-height: 18px;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition: color 0.2s;
+    }
+
+    .display-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 54px;
+      color: var(--text);
+      text-align: right;
+      line-height: 1;
+      letter-spacing: -1px;
+      transition: font-size 0.15s ease, color 0.2s;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .display-value.flash {
+      color: var(--accent);
+    }
+
+    .display-value.error {
+      color: var(--accent2);
+      font-size: 32px;
+    }
+
+    /* Grid */
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      font-family: 'DM Mono', monospace;
+      font-size: 17px;
+      font-weight: 400;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--btn-bg);
+      color: var(--text);
+      height: 62px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s, transform 0.08s, box-shadow 0.12s, border-color 0.12s;
+      position: relative;
+      overflow: hidden;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    button::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      border-radius: inherit;
+      transition: opacity 0.15s;
+    }
+
+    button:hover {
+      background: var(--btn-hover);
+      border-color: #333;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    button:active {
+      transform: scale(0.93);
+    }
+
+    button:active::after {
+      opacity: 0.03;
+    }
+
+    /* Operator buttons */
+    button.op {
+      background: #1a1a1a;
+      color: var(--accent);
+      border-color: #2a2a1a;
+      font-size: 20px;
+    }
+
+    button.op:hover {
+      background: #222210;
+      border-color: #3a3a20;
+    }
+
+    /* Equals */
+    button.eq {
+      background: var(--accent);
+      color: #0a0a0a;
+      border-color: var(--accent);
+      font-size: 22px;
+      font-weight: 500;
+      box-shadow: 0 4px 24px rgba(232,255,71,0.25);
+    }
+
+    button.eq:hover {
+      background: #d4eb30;
+      border-color: #d4eb30;
+      box-shadow: 0 6px 30px rgba(232,255,71,0.4);
+    }
+
+    /* Function buttons */
+    button.fn {
+      background: #131313;
+      color: #888;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    button.fn:hover {
+      color: #aaa;
+    }
+
+    /* Clear/AC */
+    button.clear {
+      background: #1a0d0d;
+      color: var(--accent2);
+      border-color: #2a1515;
+    }
+
+    button.clear:hover {
+      background: #221010;
+    }
+
+    /* Wide button (span 2) */
+    button.wide {
+      grid-column: span 2;
+    }
+
+    /* Ripple */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      transform: scale(0);
+      animation: ripple-anim 0.5s linear;
+      pointer-events: none;
+    }
+
+    @keyframes ripple-anim {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    /* History strip */
+    .history {
+      width: 340px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      max-height: 120px;
+      overflow-y: auto;
+      animation: slideUp 0.5s 0.1s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    .history::-webkit-scrollbar { width: 4px; }
+    .history::-webkit-scrollbar-track { background: transparent; }
+    .history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .history-title {
+      font-size: 9px;
+      letter-spacing: 4px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .history-entry {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 3px 0;
+      border-bottom: 1px solid #1a1a1a;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .history-entry:last-child { border-bottom: none; }
+    .history-entry .res { color: var(--accent); }
+    .history-empty {
+      font-size: 11px;
+      color: #333;
+      text-align: center;
+      padding: 6px 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+  <span class="label">Ultra Calculator</span>
+
+  <div class="calculator">
+    <div class="display">
+      <div class="display-expr" id="expr"></div>
+      <div class="display-value" id="display">0</div>
+    </div>
+
+    <div class="buttons">
+      <!-- Row 1 -->
+      <button class="fn clear" data-action="clear">AC</button>
+      <button class="fn" data-action="sign">+/−</button>
+      <button class="fn" data-action="percent">%</button>
+      <button class="op" data-action="operator" data-value="÷">÷</button>
+
+      <!-- Row 2 -->
+      <button data-action="digit" data-value="7">7</button>
+      <button data-action="digit" data-value="8">8</button>
+      <button data-action="digit" data-value="9">9</button>
+      <button class="op" data-action="operator" data-value="×">×</button>
+
+      <!-- Row 3 -->
+      <button data-action="digit" data-value="4">4</button>
+      <button data-action="digit" data-value="5">5</button>
+      <button data-action="digit" data-value="6">6</button>
+      <button class="op" data-action="operator" data-value="−">−</button>
+
+      <!-- Row 4 -->
+      <button data-action="digit" data-value="1">1</button>
+      <button data-action="digit" data-value="2">2</button>
+      <button data-action="digit" data-value="3">3</button>
+      <button class="op" data-action="operator" data-value="+">+</button>
+
+      <!-- Row 5 -->
+      <button class="wide" data-action="digit" data-value="0">0</button>
+      <button data-action="decimal">.</button>
+      <button class="eq" data-action="equals">=</button>
+    </div>
+  </div>
+
+  <div class="history" id="history">
+    <div class="history-title">History</div>
+    <div class="history-empty" id="history-empty">No calculations yet</div>
+  </div>
+</div>
+
+<script>
+  // State
+  let current = '0';
+  let previous = '';
+  let operator = null;
+  let shouldResetScreen = false;
+  let historyLog = [];
+
+  const display = document.getElementById('display');
+  const exprEl  = document.getElementById('expr');
+  const historyEl = document.getElementById('history');
+  const historyEmpty = document.getElementById('history-empty');
+
+  function updateDisplay(value, isError = false) {
+    display.classList.remove('error', 'flash');
+    if (isError) {
+      display.classList.add('error');
+      display.textContent = value;
+      display.style.fontSize = '';
+      return;
+    }
+
+    // Auto-shrink for long numbers
+    const len = value.length;
+    display.style.fontSize = len > 10 ? '28px' : len > 7 ? '40px' : '';
+    display.textContent = value;
+  }
+
+  function flashDisplay() {
+    display.classList.add('flash');
+    setTimeout(() => display.classList.remove('flash'), 300);
+  }
+
+  function formatNumber(n) {
+    if (isNaN(n) || !isFinite(n)) return null;
+    // Format up to 10 sig digits
+    let str = parseFloat(n.toPrecision(10)).toString();
+    return str;
+  }
+
+  function handleDigit(d) {
+    if (shouldResetScreen) {
+      current = d === '0' ? '0' : d;
+      shouldResetScreen = false;
+    } else {
+      if (current === '0' && d !== '.') current = d;
+      else if (current.length < 12) current += d;
+    }
+    updateDisplay(current);
+  }
+
+  function handleDecimal() {
+    if (shouldResetScreen) { current = '0.'; shouldResetScreen = false; updateDisplay(current); return; }
+    if (!current.includes('.')) { current += '.'; updateDisplay(current); }
+  }
+
+  function handleOperator(op) {
+    if (operator && !shouldResetScreen) calculate(false);
+    previous = current;
+    operator = op;
+    shouldResetScreen = true;
+    exprEl.textContent = previous + ' ' + op;
+  }
+
+  function calculate(addHistory = true) {
+    if (!operator || shouldResetScreen) return;
+    const a = parseFloat(previous);
+    const b = parseFloat(current);
+    let result;
+    switch(operator) {
+      case '+': result = a + b; break;
+      case '−': result = a - b; break;
+      case '×': result = a * b; break;
+      case '÷':
+        if (b === 0) { updateDisplay('Div by 0', true); exprEl.textContent = ''; operator = null; return; }
+        result = a / b;
+        break;
+    }
+    const formatted = formatNumber(result);
+    if (formatted === null) { updateDisplay('Error', true); return; }
+
+    const expr = `${previous} ${operator} ${current}`;
+    if (addHistory) addToHistory(expr, formatted);
+
+    exprEl.textContent = expr + ' =';
+    current = formatted;
+    operator = null;
+    shouldResetScreen = true;
+    updateDisplay(current);
+    flashDisplay();
+  }
+
+  function addToHistory(expr, result) {
+    historyLog.unshift({ expr, result });
+    if (historyLog.length > 10) historyLog.pop();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    historyEmpty.style.display = historyLog.length ? 'none' : 'block';
+    // Remove old entries
+    historyEl.querySelectorAll('.history-entry').forEach(e => e.remove());
+    historyLog.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'history-entry';
+      div.innerHTML = `<span>${item.expr}</span><span class="res">= ${item.result}</span>`;
+      historyEl.appendChild(div);
+    });
+  }
+
+  function handleClear() {
+    current = '0'; previous = ''; operator = null; shouldResetScreen = false;
+    exprEl.textContent = '';
+    updateDisplay('0');
+  }
+
+  function handleSign() {
+    if (current === '0') return;
+    current = (parseFloat(current) * -1).toString();
+    updateDisplay(current);
+  }
+
+  function handlePercent() {
+    current = (parseFloat(current) / 100).toString();
+    updateDisplay(current);
+  }
+
+  // Button clicks
+  document.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', e => {
+      createRipple(btn, e);
+      const action = btn.dataset.action;
+      const value = btn.dataset.value;
+
+      switch(action) {
+        case 'digit':    handleDigit(value);    break;
+        case 'decimal':  handleDecimal();        break;
+        case 'operator': handleOperator(value); break;
+        case 'equals':   calculate();            break;
+        case 'clear':    handleClear();          break;
+        case 'sign':     handleSign();           break;
+        case 'percent':  handlePercent();        break;
+      }
+    });
+  });
+
+  // Ripple effect
+  function createRipple(btn, e) {
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    r.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX-rect.left-size/2}px;top:${e.clientY-rect.top-size/2}px`;
+    btn.appendChild(r);
+    r.addEventListener('animationend', () => r.remove());
+  }
+
+  // Keyboard support
+  document.addEventListener('keydown', e => {
+    if (e.key >= '0' && e.key <= '9') handleDigit(e.key);
+    else if (e.key === '.') handleDecimal();
+    else if (e.key === '+') handleOperator('+');
+    else if (e.key === '-') handleOperator('−');
+    else if (e.key === '*') handleOperator('×');
+    else if (e.key === '/') { e.preventDefault(); handleOperator('÷'); }
+    else if (e.key === 'Enter' || e.key === '=') calculate();
+    else if (e.key === 'Escape' || e.key === 'c' || e.key === 'C') handleClear();
+    else if (e.key === 'Backspace') {
+      if (current.length > 1) current = current.slice(0, -1);
+      else current = '0';
+      updateDisplay(current);
+    }
+  });
+</script>
+</body>
+</html>
